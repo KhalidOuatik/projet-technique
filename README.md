@@ -88,3 +88,15 @@ supply-chain-security-project/
 > **Voies d'exécution :** tout tourne **en local** (Docker + `kind` ou `k3s`), *aucun cloud requis*.
 > Une variante **Azure** (AKS + Azure Container Registry + politiques) est indiquée en encart pour
 > les groupes disposant de la licence Student.
+
+## 👥 Collaboration en groupe (Nouveau)
+
+Pour que chaque membre du groupe puisse tester le cluster localement sans conflit de clés ou de registre, un script d'initialisation interactif a été ajouté :
+```bash
+./setup-cluster.sh
+```
+Ce script va automatiquement :
+- Détecter ou générer vos clés Cosign locales.
+- Configurer les politiques Kyverno avec votre propre clé publique.
+- Adapter les fichiers de déploiement Kubernetes à votre propre nom d'utilisateur GitHub.
+
