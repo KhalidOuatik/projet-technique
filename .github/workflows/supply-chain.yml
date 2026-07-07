@@ -14,7 +14,7 @@ permissions:
   id-token: write        # OIDC → signature keyless (Fulcio/Rekor)
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/scs-demo-app
+  IMAGE: ghcr.io/khalidouatik/scs-demo-app
 
 jobs:
   build-sign-attest:
