@@ -1,0 +1,45 @@
+# Politique 4 — Exiger une ATTESTATION DE PROVENANCE (SLSA) valide.
+# Signer ne suffit pas : on exige la preuve "d'où vient cette image" (qui/quoi/quand).
+# Kyverno vérifie l'attestation de type slsaprovenance attachée à l'image.
+#
+# BONUS (commenté) : on peut aussi vérifier des CONDITIONS sur le contenu de la provenance,
+# p.ex. que le build vient bien de la branche main de votre dépôt.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-provenance-attestation
+  annotations:
+    policies.kyverno.io/title: Exiger l'attestation de provenance
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/description: >-
+      Refuse toute image sans attestation de provenance SLSA signée et valide.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: verifier-provenance
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/<votre-user>/scs-demo-app*"
+          required: true
+          attestations:
+            - type: https://slsa.dev/provenance/v0.2
+              attestors:
+                - count: 1
+                  entries:
+                    - keys:
+                        publicKeys: |-
+                          -----BEGIN PUBLIC KEY-----
+                          COLLEZ_ICI_LE_CONTENU_DE_cosign.pub
+                          -----END PUBLIC KEY-----
+              # ---- BONUS : conditions sur le CONTENU de la provenance ----
+              # conditions:
+              #   - all:
+              #       - key: "{{ buildType }}"
+              #         operator: Equals
+              #         value: "https://example.com/manual-local-build/v1"

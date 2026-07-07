@@ -1,0 +1,18 @@
+# Secrets de signature — NE JAMAIS COMMITER
+cosign.key
+*.key
+
+# Sorties de labs
+sbom*.json
+provenance.json
+*.att
+*.sig
+
+# Python
+app/.venv/
+__pycache__/
+*.pyc
+
+# Divers
+.env
+*.log

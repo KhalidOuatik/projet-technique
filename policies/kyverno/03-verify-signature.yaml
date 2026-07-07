@@ -1,0 +1,52 @@
+# Politique 3 — Exiger une signature cosign VALIDE de VOTRE identité.
+# C'est le contrôle central : le cluster n'exécute que des images signées par vous.
+#
+# Deux variantes ci-dessous :
+#   (A) mode PAR CLÉ    → collez votre cosign.pub (Lab 2)
+#   (B) mode KEYLESS    → exigez l'identité du workflow GitHub (Lab 5)  [décommentez]
+#
+# ➜ Adaptez "ghcr.io/<votre-user>/scs-demo-app" et la clé / l'identité.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signature
+  annotations:
+    policies.kyverno.io/title: Vérifier la signature cosign
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/description: >-
+      Refuse toute image non signée ou signée par une identité non autorisée.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: verifier-signature-cosign
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/<votre-user>/scs-demo-app*"
+          mutateDigest: true          # réécrit le tag en digest (empêche la substitution)
+          verifyDigest: true
+          required: true
+          # ---- (A) VARIANTE PAR CLÉ ----
+          attestors:
+            - count: 1
+              entries:
+                - keys:
+                    publicKeys: |-
+                      -----BEGIN PUBLIC KEY-----
+                      COLLEZ_ICI_LE_CONTENU_DE_cosign.pub
+                      -----END PUBLIC KEY-----
+          # ---- (B) VARIANTE KEYLESS (Lab 5) : commentez le bloc 'keys' ci-dessus
+          #          et décommentez le bloc 'keyless' ci-dessous ----
+          # attestors:
+          #   - count: 1
+          #     entries:
+          #       - keyless:
+          #           issuer: "https://token.actions.githubusercontent.com"
+          #           subject: "https://github.com/<votre-user>/supply-chain-security-project/.github/workflows/supply-chain.yml@refs/heads/main"
+          #           rekor:
+          #             url: "https://rekor.sigstore.dev"

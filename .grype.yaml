@@ -1,0 +1,4 @@
+# Politique de scan Grype (Lab 1).
+# Ne casse la chaîne que sur des vulnérabilités CRITICAL pour lesquelles un correctif existe.
+only-fixed: true
+fail-on-severity: critical

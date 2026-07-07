@@ -1,0 +1,13 @@
+# Cluster kind local pour la démo — 1 control-plane + 1 worker
+# Usage : kind create cluster --name scs --config cluster/kind-config.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: scs
+nodes:
+  - role: control-plane
+    # Expose le port 8080 du node vers l'hôte pour tester l'app facilement
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+  - role: worker

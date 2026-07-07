@@ -1,0 +1,38 @@
+# Politique 2 — Interdire le tag :latest (et l'absence de tag).
+# Un tag mutable comme :latest permet de substituer silencieusement le contenu.
+# On force un tag explicite ; l'idéal (imposé en pratique) reste le déploiement PAR DIGEST.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Interdire :latest
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/description: >-
+      Refuse les images utilisant le tag mutable :latest ou sans tag.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: interdire-latest
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "Le tag :latest est interdit — utilisez un tag versionné ou un digest (@sha256:...)."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+    - name: exiger-tag-explicite
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      validate:
+        message: "Image sans tag interdite — spécifiez un tag ou un digest."
+        pattern:
+          spec:
+            containers:
+              - image: "*:*"
