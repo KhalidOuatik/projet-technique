@@ -15,9 +15,11 @@ spec:
     metadata:
       labels: { app: scs-demo-app }
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: app
-          image: ghcr.io/<votre-user>/scs-demo-app@sha256:REMPLACEZ_PAR_VOTRE_DIGEST
+          image: ghcr.io/khalidouatik/scs-demo-app@sha256:edf18d5cbdda8c97187310ba95a99dc33876293f7f18cce8c8a473000753fea1
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -32,10 +34,17 @@ spec:
             requests: { cpu: "50m", memory: "64Mi" }
             limits: { cpu: "250m", memory: "128Mi" }
           securityContext:
+            runAsUser: 10001
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

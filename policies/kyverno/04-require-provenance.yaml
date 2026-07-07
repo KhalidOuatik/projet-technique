@@ -25,8 +25,12 @@ spec:
               kinds: [Pod]
       verifyImages:
         - imageReferences:
-            - "ghcr.io/<votre-user>/scs-demo-app*"
+            - "ghcr.io/khalidouatik/scs-demo-app*"
           required: true
+          imageRegistryCredentials:
+            secrets:
+              - "kyverno/kyverno-registry-credentials"
+            allowInsecureRegistry: false
           attestations:
             - type: https://slsa.dev/provenance/v0.2
               attestors:
@@ -35,7 +39,8 @@ spec:
                     - keys:
                         publicKeys: |-
                           -----BEGIN PUBLIC KEY-----
-                          COLLEZ_ICI_LE_CONTENU_DE_cosign.pub
+                          MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAELZvgkuGC0OsdPnhVo1bCz5nccDW7
+                          4zOMAqgCTrSeoRtY10XxY9Z37tqbfno00IBGsDvoKYhpE3xYK1nC716fuQ==
                           -----END PUBLIC KEY-----
               # ---- BONUS : conditions sur le CONTENU de la provenance ----
               # conditions:

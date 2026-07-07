@@ -21,12 +21,12 @@ spec:
               kinds: [Pod]
       validate:
         message: >-
-          Image refusée : seules les images de ghcr.io/<votre-user>/ sont autorisées.
+          Image refusée : seules les images de ghcr.io/khalidouatik/ sont autorisées.
         pattern:
           spec:
             =(ephemeralContainers):
-              - image: "ghcr.io/<votre-user>/*"
+              - image: "ghcr.io/khalidouatik/*"
             =(initContainers):
-              - image: "ghcr.io/<votre-user>/*"
+              - image: "ghcr.io/khalidouatik/*"
             containers:
-              - image: "ghcr.io/<votre-user>/*"
+              - image: "ghcr.io/khalidouatik/*"
