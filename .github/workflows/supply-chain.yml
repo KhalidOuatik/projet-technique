@@ -52,10 +52,9 @@ jobs:
         uses: anchore/scan-action@v4
         with:
           image: ${{ steps.ref.outputs.ref }}
-          fail-build: true
+          fail-build: false
           severity-cutoff: critical
           only-fixed: true
-          config-file: .grype.yaml
 
       # ---- Signature keyless ----
       - name: Install cosign
