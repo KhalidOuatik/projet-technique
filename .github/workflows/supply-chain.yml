@@ -55,6 +55,7 @@ jobs:
           fail-build: true
           severity-cutoff: critical
           only-fixed: true
+          config-file: .grype.yaml
 
       # ---- Signature keyless ----
       - name: Install cosign
