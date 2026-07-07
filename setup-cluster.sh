@@ -55,6 +55,7 @@ content = content.replace('github.com/<votre-user>/', 'github.com/$USER_GITHUB/'
 with open('/tmp/03-verify.yaml', 'w') as f:
     f.write(content)
 "
+kubectl delete clusterpolicy verify-image-signature 2>/dev/null || true
 kubectl apply -f /tmp/03-verify.yaml
 
 # Règle 04 : Provenance SLSA dynamique
@@ -66,9 +67,25 @@ content = content.replace('COLLEZ_ICI_LE_CONTENU_DE_cosign.pub', '''$PUBLIC_KEY_
 with open('/tmp/04-provenance.yaml', 'w') as f:
     f.write(content)
 "
+kubectl delete clusterpolicy require-provenance-attestation 2>/dev/null || true
 kubectl apply -f /tmp/04-provenance.yaml
 
-# 4. Mettre à jour k8s/deployment.yaml dynamique pour l'utilisateur
+# 4. Signature et attestations automatiques sur GHCR
+echo "[Cosign] Signature et attestation automatique de l'image sur GHCR..."
+IMAGE_REF="ghcr.io/$USER_GITHUB/scs-demo-app@sha256:edf18d5cbdda8c97187310ba95a99dc33876293f7f18cce8c8a473000753fea1"
+
+# Tenter de se connecter à GHCR si non authentifié en local
+if ! docker system info 2>&1 | grep -q "Username: $USER_GITHUB" && [ ! -z "$GITHUB_TOKEN" ]; then
+    echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$USER_GITHUB" --password-stdin 2>/dev/null || true
+fi
+
+COSIGN_PASSWORD="" cosign sign --key cosign.key --registry-referrers-mode=legacy "$IMAGE_REF" --yes 2>/dev/null || \
+  echo "⚠️ Échec de signature cosign (vérifiez que vous êtes connecté à GHCR)."
+
+COSIGN_DOCKER_MEDIA_TYPES=1 COSIGN_PASSWORD="" cosign attest --key cosign.key --predicate sbom.spdx.json --type spdxjson "$IMAGE_REF" --yes 2>/dev/null || true
+COSIGN_DOCKER_MEDIA_TYPES=1 COSIGN_PASSWORD="" cosign attest --key cosign.key --predicate provenance.json --type slsaprovenance "$IMAGE_REF" --yes 2>/dev/null || true
+
+# 5. Mettre à jour k8s/deployment.yaml dynamique pour l'utilisateur
 echo "[K8s] Génération du fichier k8s/deployment-local.yaml personnalisé..."
 sed "s/ghcr.io\/<votre-user>/ghcr.io\/$USER_GITHUB/g" k8s/deployment.yaml > k8s/deployment-local.yaml || true
 
