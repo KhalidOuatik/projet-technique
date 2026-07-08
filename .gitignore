@@ -27,3 +27,56 @@ k8s/deployment-local.yaml
 # Divers
 .env
 *.log
+
+
+# Terraform files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+!example.tfvars
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.DS_Store
+
+# SSH keys
+infra/ssh/*
+!infra/ssh/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.env
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Dependencies
+node_modules/
+.gradle/
+
+# Local development
+local.tf
+
+# Helm
+charts/
+Chart.lock
+*.tgz
+kubeconfig.yaml
+kubeconfig.yml
+
