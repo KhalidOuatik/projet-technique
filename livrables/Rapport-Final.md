@@ -1,6 +1,6 @@
 # Rapport — Chaîne d'approvisionnement logicielle sécurisée
 
-- **Auteur :** Khalid Ouatik
+- **Groupe :** Khalid OUATIK · Omar Mohammed HASSAS · Loic STEVE · Hadama TOURE
 - **Fork :** https://github.com/KhalidOuatik/projet-technique
 - **Voie :** ☑ Local (kind) + CI GitHub Actions (Lab 5 bonus)
 - **Date :** 08 Juillet 2026

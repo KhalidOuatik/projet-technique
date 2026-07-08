@@ -1,6 +1,6 @@
 # Threat model — Chaîne d'approvisionnement logicielle
 
-- **Auteur :** Khalid Ouatik
+- **Groupe :** Khalid OUATIK · Omar Mohammed HASSAS · Loic STEVE · Hadama TOURE
 - **Fork :** https://github.com/KhalidOuatik/projet-technique
 - **Date :** 08 juillet 2026
 
