@@ -1,0 +1,23 @@
+# values-arc-runners.yaml
+githubConfigUrl: "https://github.com/fyls237"
+githubConfigSecret: github-app-secret
+
+# Scaling
+maxRunners: 10
+minRunners: 1
+
+# Runner éphémère (un pod = un job)
+# C'est le comportement par défaut avec les scale sets
+
+template:
+  spec:
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
