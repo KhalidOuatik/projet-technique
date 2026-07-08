@@ -39,7 +39,7 @@ passage de « on scanne » à « on vérifie et on bloque ».
 ```
 
 Deux voies de build coexistent :
-- **Voie locale** (démo de soutenance) : build Docker local, signature par **clé** cosign, cluster kind.
+- **Voie locale** (démo attaque/défense) : build Docker local, signature par **clé** cosign, cluster kind.
 - **Voie CI** (Lab 5) : GitHub Actions builde, scanne (gate bloquant), signe en **keyless** (OIDC,
   journalisé dans Rekor) et attache les deux attestations — sans aucune clé stockée.
 
@@ -178,9 +178,38 @@ Un seul octet modifié suffit à changer le digest SHA-256 ; la signature — li
 l'image légitime — ne correspond plus, et le cluster refuse **avant même** de créer le Pod.
 C'est la garantie d'intégrité de bout en bout.
 
-Preuves versionnées dans `livrables/captures/` : sortie complète de la démo, pods Running,
-politiques en Enforce, vérification cosign. *(+ captures d'écran / vidéo de la séquence prises
-en vue de la soutenance — plan B si le live échoue.)*
+**Extrait de la sortie réelle de `./demo.sh`** (intégralité dans
+[`livrables/captures/demo-output.txt`](captures/demo-output.txt)) :
+
+```
+[Cas Nominal] 1. Déploiement de l'image signée & attestée...
+deployment.apps/scs-demo-app created
+--> SUCCÈS : Le cluster a accepté le déploiement de l'image légitime. ✅
+
+[Attaque 1] Tentative de déploiement d'une image NON SIGNÉE...
+resource Pod/app/pirate-unsigned was blocked due to the following policies
+verify-image-signature:
+  verifier-signature-cosign: '... .attestors[0].entries[0].keys: no signatures found'
+--> DÉFENSE RÉUSSIE : Kyverno a bloqué l'image non signée ! 🛡️
+
+[Attaque 3] Tentative de déploiement depuis un registre non autorisé...
+allowed-registries:
+  verifier-registry: 'validation error: Image refusée : seules les images
+  de ghcr.io/khalidouatik/ sont autorisées.'
+--> DÉFENSE RÉUSSIE : Kyverno a rejeté le registre externe ! 🛡️
+
+[Attaque 4] Tentative de déploiement d'une image MODIFIÉE APRÈS SIGNATURE...
+resource Pod/app/pirate-tampered was blocked due to the following policies
+verify-image-signature:
+  verifier-signature-cosign: 'failed to verify image ...:1.0.0-tampered:
+  .attestors[0].entries[0].keys: no signatures found'
+--> DÉFENSE RÉUSSIE : digest ≠ signature, Kyverno a bloqué l'image altérée ! 🛡️
+```
+
+Autres preuves versionnées dans `livrables/captures/` : pods Running
+(`pods-running.txt`), politiques en Enforce (`policies-enforce.txt`), vérification de la
+signature (`cosign-verify.txt`). Le registry GHCR étant **public**, chaque preuve est
+rejouable directement : `cosign verify --key cosign.pub ...` fonctionne sans authentification.
 
 ## 6. Positionnement SLSA & limites (honnête)
 
@@ -210,7 +239,8 @@ kind create cluster --name scs --config cluster/kind-config.yaml
 # 2. Kyverno 1.12.6
 kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.12.6/install.yaml
 
-# 3. Namespace + secrets registry (GHCR privé)
+# 3. Namespace (+ secrets registry — OPTIONNELS : le package GHCR est public.
+#    Requis uniquement si vous reproduisez avec votre propre registry privé.)
 kubectl create namespace app
 kubectl create secret docker-registry ghcr-secret -n app \
   --docker-server=ghcr.io --docker-username=<user> --docker-password=<PAT>
