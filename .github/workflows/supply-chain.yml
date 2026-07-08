@@ -52,7 +52,7 @@ jobs:
       # seules les CVE critiques AVEC correctif disponible cassent le build
       # (les CVE de base image sans fix ne bloquent pas — elles restent tracées via le SBOM).
       - name: Scan (Grype) — gate sur CRITICAL
-        uses: anchore/scan-action@v4
+        uses: anchore/scan-action@v7
         with:
           image: ${{ steps.ref.outputs.ref }}
           fail-build: true
