@@ -100,3 +100,24 @@ Ce script va automatiquement :
 - Configurer les politiques Kyverno avec votre propre clé publique.
 - Adapter les fichiers de déploiement Kubernetes à votre propre nom d'utilisateur GitHub.
 
+> ⚠️ **Version de cosign** : Kyverno 1.12 lit les signatures au format *legacy* (tags `.sig`/`.att`).
+> cosign **v3** pousse par défaut le nouveau format bundle (OCI referrers), invisible pour Kyverno 1.12
+> (`no signatures found` alors que `cosign verify` réussit). Signez avec **cosign v2.x**.
+
+## 🎬 Démo attaque / défense
+
+```bash
+./attack-tamper.sh   # prépare l'attaque 4 : image "backdoorée" poussée après signature
+./demo.sh            # cas nominal accepté + 4 attaques rejetées par Kyverno
+```
+
+| Scénario | Attendu |
+|---|---|
+| Image signée & attestée (par digest) | ✅ acceptée |
+| Image non signée | ❌ `no signatures found` |
+| Tag `:latest` | ❌ refusé |
+| Registry non autorisé | ❌ refusé |
+| Image **modifiée après signature** | ❌ digest ≠ signature → refusée |
+
+Sorties réelles : [`livrables/captures/`](livrables/captures/).
+

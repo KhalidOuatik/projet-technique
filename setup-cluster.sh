@@ -71,19 +71,30 @@ kubectl delete clusterpolicy require-provenance-attestation 2>/dev/null || true
 kubectl apply -f /tmp/04-provenance.yaml
 
 # 4. Signature et attestations automatiques sur GHCR
+# ⚠️ Kyverno 1.12 ne lit que le format de signature LEGACY (tags .sig / .att).
+#    cosign v3 pousse par défaut le nouveau format bundle (OCI referrers) : la signature
+#    est valide pour `cosign verify` mais INVISIBLE pour Kyverno 1.12 ("no signatures found").
+#    On exige donc cosign v2.x pour cette étape.
 echo "[Cosign] Signature et attestation automatique de l'image sur GHCR..."
 IMAGE_REF="ghcr.io/$USER_GITHUB/scs-demo-app@sha256:edf18d5cbdda8c97187310ba95a99dc33876293f7f18cce8c8a473000753fea1"
 
-# Tenter de se connecter à GHCR si non authentifié en local
-if ! docker system info 2>&1 | grep -q "Username: $USER_GITHUB" && [ ! -z "$GITHUB_TOKEN" ]; then
-    echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$USER_GITHUB" --password-stdin 2>/dev/null || true
+COSIGN_MAJOR=$(cosign version 2>/dev/null | grep GitVersion | grep -oE 'v[0-9]+' | head -1 | tr -d 'v')
+if [ "${COSIGN_MAJOR:-0}" -ge 3 ]; then
+    echo "⚠️  cosign v${COSIGN_MAJOR} détecté : ses signatures ne seront PAS vues par Kyverno 1.12."
+    echo "    Installez cosign v2.x (https://github.com/sigstore/cosign/releases/tag/v2.5.3)"
+    echo "    puis signez manuellement. Étape de signature IGNORÉE."
+else
+    # Tenter de se connecter à GHCR si non authentifié en local
+    if ! docker system info 2>&1 | grep -q "Username: $USER_GITHUB" && [ ! -z "$GITHUB_TOKEN" ]; then
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$USER_GITHUB" --password-stdin 2>/dev/null || true
+    fi
+
+    COSIGN_PASSWORD="" cosign sign --key cosign.key "$IMAGE_REF" --yes 2>/dev/null || \
+      echo "⚠️ Échec de signature cosign (vérifiez que vous êtes connecté à GHCR)."
+
+    COSIGN_PASSWORD="" cosign attest --key cosign.key --predicate sbom.spdx.json --type spdxjson "$IMAGE_REF" --yes 2>/dev/null || true
+    COSIGN_PASSWORD="" cosign attest --key cosign.key --predicate provenance.json --type slsaprovenance "$IMAGE_REF" --yes 2>/dev/null || true
 fi
-
-COSIGN_PASSWORD="" cosign sign --key cosign.key --registry-referrers-mode=legacy "$IMAGE_REF" --yes 2>/dev/null || \
-  echo "⚠️ Échec de signature cosign (vérifiez que vous êtes connecté à GHCR)."
-
-COSIGN_DOCKER_MEDIA_TYPES=1 COSIGN_PASSWORD="" cosign attest --key cosign.key --predicate sbom.spdx.json --type spdxjson "$IMAGE_REF" --yes 2>/dev/null || true
-COSIGN_DOCKER_MEDIA_TYPES=1 COSIGN_PASSWORD="" cosign attest --key cosign.key --predicate provenance.json --type slsaprovenance "$IMAGE_REF" --yes 2>/dev/null || true
 
 # 5. Mettre à jour k8s/deployment.yaml dynamique pour l'utilisateur
 echo "[K8s] Génération du fichier k8s/deployment-local.yaml personnalisé..."

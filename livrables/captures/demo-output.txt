@@ -1,0 +1,71 @@
+================================================================
+          DÉMONSTRATION APPLICATIVE - SUPPLY CHAIN SECURITY     
+================================================================
+
+[Setup] Nettoyage des anciennes ressources...
+deployment.apps "scs-demo-app" deleted from app namespace
+
+[Cas Nominal] 1. Déploiement de l'image signée & attestée...
+Image: ghcr.io/khalidouatik/scs-demo-app@sha256:edf18d5cbdda8c97187310ba95a99dc33876293f7f18cce8c8a473000753fea1
+deployment.apps/scs-demo-app created
+service/scs-demo-app unchanged
+--> SUCCÈS : Le cluster a accepté le déploiement de l'image légitime. ✅
+
+[Attaque 1] Tentative de déploiement d'une image NON SIGNÉE...
+Image: ghcr.io/khalidouatik/scs-demo-app:unsigned
+Error from server: admission webhook "mutate.kyverno.svc-fail" denied the request: 
+
+resource Pod/app/pirate-unsigned was blocked due to the following policies 
+
+require-provenance-attestation:
+  verifier-provenance: 'image attestations verification failed, verifiedCount: 0,
+    requiredCount: 1, error: no matching attestations: '
+verify-image-signature:
+  verifier-signature-cosign: 'failed to verify image ghcr.io/khalidouatik/scs-demo-app:unsigned:
+    .attestors[0].entries[0].keys: no signatures found'
+--> DÉFENSE RÉUSSIE : Kyverno a bloqué l'image non signée ! 🛡️
+
+[Attaque 2] Tentative de déploiement avec le tag mutable :latest...
+Image: ghcr.io/khalidouatik/scs-demo-app:latest
+Error from server: admission webhook "mutate.kyverno.svc-fail" denied the request: 
+
+resource Pod/app/pirate-latest was blocked due to the following policies 
+
+require-provenance-attestation:
+  verifier-provenance: 'image attestations verification failed, verifiedCount: 0,
+    requiredCount: 1, error: no matching attestations: '
+verify-image-signature:
+  verifier-signature-cosign: 'failed to verify image ghcr.io/khalidouatik/scs-demo-app:latest:
+    .attestors[0].entries[0].keys: no signatures found'
+--> DÉFENSE RÉUSSIE : Kyverno a rejeté le tag :latest ! 🛡️
+
+[Attaque 3] Tentative de déploiement depuis un registre non autorisé...
+Image: nginx:alpine
+Error from server: admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/app/pirate-registry was blocked due to the following policies 
+
+allowed-registries:
+  verifier-registry: 'validation error: Image refusée : seules les images de ghcr.io/khalidouatik/
+    sont autorisées. rule verifier-registry failed at path /spec/containers/0/image/'
+--> DÉFENSE RÉUSSIE : Kyverno a rejeté le registre externe ! 🛡️
+
+[Attaque 4] Tentative de déploiement d'une image MODIFIÉE APRÈS SIGNATURE...
+Image: ghcr.io/khalidouatik/scs-demo-app:1.0.0-tampered
+(le tag semble légitime, mais le contenu — donc le digest — a changé)
+Error from server: admission webhook "mutate.kyverno.svc-fail" denied the request: 
+
+resource Pod/app/pirate-tampered was blocked due to the following policies 
+
+require-provenance-attestation:
+  verifier-provenance: 'image attestations verification failed, verifiedCount: 0,
+    requiredCount: 1, error: no matching attestations: '
+verify-image-signature:
+  verifier-signature-cosign: 'failed to verify image ghcr.io/khalidouatik/scs-demo-app:1.0.0-tampered:
+    .attestors[0].entries[0].keys: no signatures found'
+--> DÉFENSE RÉUSSIE : digest ≠ signature, Kyverno a bloqué l'image altérée ! 🛡️
+
+================================================================
+                   FIN DE LA DÉMO TECHNIQUE                     
+================================================================
+Logs des attaques : /tmp/attack1.log … /tmp/attack4.log (pour les captures du rapport)

@@ -21,6 +21,9 @@ __pycache__/
 evaluation/qcm.md
 evaluation/qcm-corrige.md
 
+# Fichier généré par setup-cluster.sh (personnalisé par utilisateur)
+k8s/deployment-local.yaml
+
 # Divers
 .env
 *.log

@@ -1,0 +1,5 @@
+NAME                             ADMISSION   BACKGROUND   VALIDATE ACTION   READY   AGE   MESSAGE
+allowed-registries               true        true         Enforce           True    19h   Ready
+disallow-latest-tag              true        true         Enforce           True    19h   Ready
+require-provenance-attestation   true        false        Enforce           True    18h   Ready
+verify-image-signature           true        false        Enforce           True    18h   Ready

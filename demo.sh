@@ -16,11 +16,12 @@ IMAGE_VALID="ghcr.io/khalidouatik/scs-demo-app@sha256:edf18d5cbdda8c97187310ba95
 IMAGE_UNSIGNED="ghcr.io/khalidouatik/scs-demo-app:unsigned"
 IMAGE_LATEST="ghcr.io/khalidouatik/scs-demo-app:latest"
 IMAGE_PIRATE="nginx:alpine"
+IMAGE_TAMPERED="ghcr.io/khalidouatik/scs-demo-app:1.0.0-tampered"   # préparée par ./attack-tamper.sh
 
 # Nettoyer l'environnement de démo
 echo -e "\n${BLUE}[Setup] Nettoyage des anciennes ressources...${NC}"
 kubectl delete deployment scs-demo-app -n app 2>/dev/null || true
-kubectl delete pod pirate-unsigned pirate-latest pirate-registry -n app 2>/dev/null || true
+kubectl delete pod pirate-unsigned pirate-latest pirate-registry pirate-tampered -n app 2>/dev/null || true
 sleep 2
 
 # 1. CAS NOMINAL
@@ -68,6 +69,23 @@ else
 fi
 set -e
 
+# 5. ATTAQUE 4 : Image MODIFIÉE APRÈS SIGNATURE (le cœur de la garantie d'intégrité)
+# L'image :1.0.0-tampered contient le même code + une "backdoor" injectée après coup
+# (préparée par ./attack-tamper.sh). Son digest diffère de l'image signée : aucune
+# signature ne correspond → Kyverno doit la refuser.
+echo -e "\n${RED}[Attaque 4] Tentative de déploiement d'une image MODIFIÉE APRÈS SIGNATURE...${NC}"
+echo "Image: $IMAGE_TAMPERED"
+echo "(le tag semble légitime, mais le contenu — donc le digest — a changé)"
+set +e
+kubectl run pirate-tampered --image="$IMAGE_TAMPERED" -n app 2>&1 | tee /tmp/attack4.log
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo -e "${GREEN}--> DÉFENSE RÉUSSIE : digest ≠ signature, Kyverno a bloqué l'image altérée ! 🛡️${NC}"
+else
+    echo -e "${RED}--> ATTENTION (FAILLE) : le cluster a accepté l'image modifiée.${NC}"
+fi
+set -e
+
 echo -e "\n${BLUE}================================================================${NC}"
 echo -e "${GREEN}                   FIN DE LA DÉMO TECHNIQUE                     ${NC}"
 echo -e "${BLUE}================================================================${NC}"
+echo -e "Logs des attaques : /tmp/attack1.log … /tmp/attack4.log (pour les captures du rapport)"

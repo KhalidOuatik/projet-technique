@@ -48,11 +48,14 @@ jobs:
         run: syft "${{ steps.ref.outputs.ref }}" -o spdx-json > sbom.spdx.json
 
       # ---- Scan : casse si CRITICAL corrigeable ----
+      # fail-build: true = le gate exigé par le projet. Avec only-fixed: true,
+      # seules les CVE critiques AVEC correctif disponible cassent le build
+      # (les CVE de base image sans fix ne bloquent pas — elles restent tracées via le SBOM).
       - name: Scan (Grype) — gate sur CRITICAL
         uses: anchore/scan-action@v4
         with:
           image: ${{ steps.ref.outputs.ref }}
-          fail-build: false
+          fail-build: true
           severity-cutoff: critical
           only-fixed: true
 
