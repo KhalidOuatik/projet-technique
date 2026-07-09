@@ -39,6 +39,7 @@ passage de « on scanne » à « on vérifie et on bloque ».
 ```
 
 Deux voies de build coexistent :
+
 - **Voie locale** (démo attaque/défense) : build Docker local, signature par **clé** cosign, cluster kind.
 - **Voie CI** (Lab 5) : GitHub Actions builde, scanne (gate bloquant), signe en **keyless** (OIDC,
   journalisé dans Rekor) et attache les deux attestations — sans aucune clé stockée.
@@ -85,6 +86,7 @@ CVE critique corrigeable **ne produit pas d'image**. Sur l'image saine actuelle,
 ### Signature et attestations (cosign)
 
 Génération des clés :
+
 *   Clé privée : `cosign.key` — **jamais commitée** (`.gitignore`, vérifié sur tout l'historique)
 *   Clé publique : `cosign.pub` — versionnée et collée dans les politiques Kyverno
 ```
@@ -220,6 +222,7 @@ rejouable directement : `cosign verify --key cosign.pub ...` fonctionne sans aut
 | **L3** — build isolé, provenance infalsifiable | ✗ | Exigerait un builder durci type `slsa-github-generator`. |
 
 **Limites assumées :**
+
 - La **voie locale** de la démo reste de niveau **L1** : le `provenance.json` y est écrit à la main
   (déclaratif). Seule la voie CI atteint L2. Nous l'annonçons tel quel.
 - Les politiques Kyverno vérifient la **clé locale** (variante A). Les images signées en keyless

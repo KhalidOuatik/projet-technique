@@ -33,6 +33,7 @@ La chaîne complète, avec les points d'attaque possibles :
 ```
 
 Acteurs de menace considérés :
+
 - **Attaquant amont** : compromet une dépendance open source (cas XZ Utils 2024).
 - **Attaquant CI** : compromet le runner ou une étape du pipeline (cas SolarWinds 2020, Codecov 2021).
 - **Attaquant registry** : substitue ou modifie une image dans le registry, ou publie un typosquat (dependency confusion 2021).
