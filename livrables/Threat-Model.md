@@ -47,10 +47,10 @@ Chaque ligne correspond à un contrôle **effectivement déployé et testé** da
 
 | # | Menace | Vecteur | Contrôle mis en place | Preuve dans le POC | Couverture | Risque résiduel |
 |---|---|---|---|---|---|---|
-| T1 | Artefact altéré **après** signature | tag mutation / substitution dans le registry | Signature cosign liée au **digest** + politique Kyverno `verify-image-signature` (Enforce) | Attaque 4 de `demo.sh` : l'image modifiée est **refusée** (`signature mismatch`) | **Forte** | Le build lui-même reste de confiance implicite |
-| T2 | Déploiement non autorisé (image inconnue) | accès cluster (kubeconfig volé, insider) | Admission Kyverno en mode `Enforce` : signature **requise** pour `scs-demo-app*` | Attaque 1 de `demo.sh` : image non signée **refusée** (`no matching signatures`) | **Forte** | RBAC/audit du cluster à durcir (hors périmètre) ; les images hors du pattern `scs-demo-app*` ne sont contraintes que par la politique registry |
+| T1 | Artefact altéré **après** signature | tag mutation / substitution dans le registry | Signature cosign liée au **digest** + politique Kyverno `verify-image-signature` (Enforce) | Attaque 4 de `demo.sh` : l'image modifiée est **refusée** (`no signatures found`) | **Forte** | Le build lui-même reste de confiance implicite |
+| T2 | Déploiement non autorisé (image inconnue) | accès cluster (kubeconfig volé, insider) | Admission Kyverno en mode `Enforce` : signature **requise** pour `scs-demo-app*` | Attaque 1 de `demo.sh` : image non signée **refusée** (`no signatures found`) | **Forte** | RBAC/audit du cluster à durcir (hors périmètre) ; les images hors du pattern `scs-demo-app*` ne sont contraintes que par la politique registry |
 | T3 | Dépendance vulnérable ou piégée | amont (PyPI, image de base) | SBOM Syft (SPDX + CycloneDX) + gate Grype `fail-on: critical`, `only-fixed: true` (local **et** CI) | Test local sur image `Flask==2.0.1` : exit code 2, pipeline stoppé | **Moyenne** | 0-day, CVE sans correctif, backdoor non répertoriée (type XZ : un SBOM ne détecte pas un code malveillant « légitime ») |
-| T4 | Origine inconnue / build non tracé | image buildée hors chaîne officielle | Attestation de **provenance** (type `slsaprovenance`) exigée par la politique `require-provenance-attestation` | `cosign tree` montre l'attestation attachée ; Kyverno la vérifie à l'admission | **Forte** (présence + signature) | Le **contenu** de la provenance locale est déclaratif : falsifiable tant que le build n'est pas isolé (SLSA L3) |
+| T4 | Origine inconnue / build non tracé | image construite hors de la chaîne officielle | Attestation de **provenance** (type `slsaprovenance`) exigée par la politique `require-provenance-attestation` | `cosign tree` montre l'attestation attachée ; Kyverno la vérifie à l'admission | **Forte** (présence + signature) | Le **contenu** de la provenance locale est déclaratif : falsifiable tant que le build n'est pas isolé (SLSA L3) |
 | T5 | Substitution silencieuse par tag mutable | `:latest` repointé vers une image piégée | Politique `disallow-latest-tag` + déploiement **par digest** dans `k8s/deployment.yaml` | Attaque 2 de `demo.sh` : `:latest` **refusé** | **Forte** | — |
 | T6 | Registry pirate / typosquat | image tirée d'un registry externe | Politique `allowed-registries` : seul `ghcr.io/khalidouatik/` est autorisé | Attaque 3 de `demo.sh` : `nginx:alpine` (Docker Hub) **refusé** | **Forte** | Compromission du compte GHCR lui-même (mitigée par la signature : T1) |
 | T7 | Compromission du pipeline CI | secret volé, étape modifiée (Codecov) | Signature **keyless** en CI : identité OIDC du workflow, journalisée dans **Rekor** ; aucune clé longue durée stockée dans la CI | Workflow `supply-chain.yml` : `cosign sign` keyless, log public Rekor | **Moyenne** | Un attaquant contrôlant le repo (droits push sur `main`) peut modifier le workflow lui-même → protections de branche + revue requises (hors périmètre) |
@@ -62,7 +62,7 @@ Le point clé de l'architecture : **aucun contrôle n'est seul**. Si un maillon 
 - Le scan Grype laisse passer une CVE ? → l'image reste signée et tracée : le SBOM attesté permet de savoir **immédiatement** quelles images sont affectées quand la CVE est publiée.
 - Le registry est compromis et l'image remplacée ? → le digest change → la signature ne correspond plus → **Kyverno refuse** (démontré : attaque 4).
 - Quelqu'un contourne la CI et pousse une image à la main ? → pas de signature avec notre clé → **refusée** (démontré : attaque 1).
-- Quelqu'un a un accès cluster ? → l'admission controller s'applique **avant** la création du Pod, quel que soit l'utilisateur.
+- Quelqu'un dispose d'un accès au cluster ? → l'admission controller s'applique **avant** la création du Pod, quel que soit l'utilisateur.
 
 ## 5. Hors périmètre / non couvert (assumé)
 
@@ -77,7 +77,7 @@ Le point clé de l'architecture : **aucun contrôle n'est seul**. Si un maillon 
 | Exigence | Visé | Atteint | Justification |
 |---|---|---|---|
 | **L1** — provenance existe | ✅ | ✅ | Attestation de provenance générée et attachée à l'image (`cosign attest --type slsaprovenance`), vérifiée par Kyverno. |
-| **L2** — build hébergé + provenance signée par le service de build | ✅ | ✅ **via la CI uniquement** | Le workflow GitHub Actions builde, signe (keyless OIDC) et atteste : l'identité du builder est celle du workflow, journalisée dans Rekor. ⚠️ La voie **locale** de la démo (clé cosign + `provenance.json` écrit à la main) reste **L1** : la provenance y est déclarative. |
+| **L2** — build hébergé + provenance signée par le service de build | ✅ | ✅ **via la CI uniquement** | Le workflow GitHub Actions construit l'image, la signe (keyless OIDC) et l'atteste : l'identité du builder est celle du workflow, journalisée dans Rekor. ⚠️ La voie **locale** de la démo (clé cosign + `provenance.json` écrit à la main) reste **L1** : la provenance y est déclarative. |
 | **L3** — build isolé, provenance infalsifiable | ✗ | ✗ | Exigerait un builder durci (ex. `slsa-github-generator` en job séparé) empêchant le job de build de manipuler la provenance. Identifié comme prochaine étape. |
 
 **Limite assumée** : les politiques Kyverno du cluster vérifient la **clé locale** (variante A).

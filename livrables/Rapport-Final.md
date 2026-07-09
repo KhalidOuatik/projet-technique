@@ -3,7 +3,7 @@
 - **Groupe :** Khalid OUATIK · Omar Mohammed HASSAS · Loic STEVE · Hadama TOURE
 - **Fork :** https://github.com/KhalidOuatik/projet-technique
 - **Voie :** ☑ Local (kind) + CI GitHub Actions (Lab 5 bonus)
-- **Date :** 08 Juillet 2026
+- **Date :** 08 juillet 2026
 - **Threat model associé :** [`livrables/Threat-Model.md`](Threat-Model.md)
 
 ## 1. Contexte & objectif
@@ -41,8 +41,8 @@ passage de « on scanne » à « on vérifie et on bloque ».
 Deux voies de build coexistent :
 
 - **Voie locale** (démo attaque/défense) : build Docker local, signature par **clé** cosign, cluster kind.
-- **Voie CI** (Lab 5) : GitHub Actions builde, scanne (gate bloquant), signe en **keyless** (OIDC,
-  journalisé dans Rekor) et attache les deux attestations — sans aucune clé stockée.
+- **Voie CI** (Lab 5) : GitHub Actions construit l'image, la scanne (gate bloquant), la signe en
+  **keyless** (OIDC, journalisé dans Rekor) et attache les deux attestations — sans aucune clé stockée.
 
 ## 3. Mise en œuvre
 
@@ -68,7 +68,7 @@ fail-on-severity: critical
 ```
 
 **Choix assumé** : on ne bloque que sur les CVE **critiques pour lesquelles un correctif existe**
-(`only-fixed`). Bloquer sur des CVE sans correctif rendrait le gate inactionnable (l'équipe ne
+(`only-fixed`). Bloquer sur des CVE sans correctif rendrait le gate non actionnable (l'équipe ne
 peut rien corriger) ; ces CVE restent néanmoins tracées via le SBOM.
 
 **Preuve du gate** — sur une version volontairement vulnérable (`Flask==2.0.1`, tag `:vuln`) :
@@ -87,7 +87,7 @@ CVE critique corrigeable **ne produit pas d'image**. Sur l'image saine actuelle,
 
 Génération des clés :
 
-*   Clé privée : `cosign.key` — **jamais commitée** (`.gitignore`, vérifié sur tout l'historique)
+*   Clé privée : `cosign.key` — **jamais versionnée** (`.gitignore`, vérifié sur tout l'historique git)
 *   Clé publique : `cosign.pub` — versionnée et collée dans les politiques Kyverno
 ```
 -----BEGIN PUBLIC KEY-----
@@ -124,8 +124,9 @@ capture `livrables/captures/policies-enforce.txt`) :
 | `verify-image-signature` | Signature cosign **valide avec notre clé** exigée | Enforce |
 | `require-provenance-attestation` | Attestation `slsaprovenance` signée exigée | Enforce |
 
-Kyverno s'authentifie auprès du registry GHCR (privé) via le secret
-`kyverno/kyverno-registry-credentials` pour récupérer signatures et attestations.
+Pendant le développement, le registry GHCR était privé : Kyverno s'authentifiait via le secret
+`kyverno/kyverno-registry-credentials` pour récupérer signatures et attestations. Le package est
+désormais **public** (vérifiabilité par le correcteur), ce secret devient donc optionnel.
 
 ## 4. Comment vérifier (commandes exactes)
 
@@ -164,8 +165,9 @@ The following checks were performed on each of these signatures:
 
 Exécution réelle de `./demo.sh` le 08/07/2026, politiques en `Enforce`
 (**sortie terminal complète : [`livrables/captures/demo-output.txt`](captures/demo-output.txt)**).
-L'image « modifiée après signature » est préparée par `./attack-tamper.sh` : rebuild de l'app avec
-une route `/backdoor` injectée, poussée sous le tag d'apparence légitime `1.0.0-tampered`.
+L'image « modifiée après signature » est préparée par `./attack-tamper.sh` : l'application est
+reconstruite avec une route `/backdoor` injectée, puis poussée sous le tag d'apparence légitime
+`1.0.0-tampered`.
 
 | # | Scénario | Résultat | Contrôle déclenché | Message Kyverno (réel) |
 |---|---|---|---|---|
@@ -223,7 +225,7 @@ rejouable directement : `cosign verify --key cosign.pub ...` fonctionne sans aut
 
 **Limites assumées :**
 
-- La **voie locale** de la démo reste de niveau **L1** : le `provenance.json` y est écrit à la main
+- La **voie locale** de la démo reste de niveau **L1** : le fichier `provenance.json` y est écrit à la main
   (déclaratif). Seule la voie CI atteint L2. Nous l'annonçons tel quel.
 - Les politiques Kyverno vérifient la **clé locale** (variante A). Les images signées en keyless
   par la CI nécessitent la **variante B** (bloc `keyless` fourni en commentaire dans
