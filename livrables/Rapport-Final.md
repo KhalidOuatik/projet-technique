@@ -12,6 +12,11 @@ Ce projet vise à sécuriser la chaîne d'approvisionnement logicielle (Software
 d'une API Flask. L'objectif est de répondre à la question : **comment prouver que l'image qui
 tourne en production est bien celle que nous avons construite — et pas une version piégée ?**
 
+Le risque n'est pas théorique : **SolarWinds (2020)** — code malveillant injecté dans le build,
+signé par l'éditeur et poussé à 18 000 clients — et **XZ Utils (2024)** — backdoor introduite sur
+trois ans dans une dépendance open source majeure — montrent que les attaques modernes visent la
+**chaîne de fabrication**, pas l'application elle-même.
+
 Un `docker pull` ne vérifie rien, et « le scan était vert » ne prouve pas que l'image *déployée*
 est celle qui a été scannée. La réponse mise en œuvre : SBOM, signature cosign liée au **digest**,
 attestations de provenance (SLSA) et contrôle **à l'admission** (Kyverno, policy-as-code) — le
@@ -43,6 +48,16 @@ Deux voies de build coexistent :
 - **Voie locale** (démo attaque/défense) : build Docker local, signature par **clé** cosign, cluster kind.
 - **Voie CI** (Lab 5) : GitHub Actions construit l'image, la scanne (gate bloquant), la signe en
   **keyless** (OIDC, journalisé dans Rekor) et attache les deux attestations — sans aucune clé stockée.
+
+Rôle de chaque outil :
+
+| Brique | Outil | Ce qu'elle apporte |
+|---|---|---|
+| SBOM | Syft | Inventaire exact des composants — « suis-je affecté par la CVE du jour ? » en secondes |
+| Scan bloquant | Grype | Casse le build sur CVE critique **corrigeable** |
+| Signature | cosign / Sigstore | Preuve cryptographique « c'est bien nous », liée au digest |
+| Attestations | cosign attest | SBOM + provenance SLSA signés et attachés à l'image |
+| Admission | Kyverno | Le gardien du cluster : vérifie tout et **refuse l'inconnu** |
 
 ## 3. Mise en œuvre
 
@@ -172,7 +187,7 @@ reconstruite avec une route `/backdoor` injectée, puis poussée sous le tag d'a
 | # | Scénario | Résultat | Contrôle déclenché | Message Kyverno (réel) |
 |---|---|---|---|---|
 | 0 | Image légitime (par digest) | ✅ **acceptée** | — | `deployment.apps/scs-demo-app created` — 2 pods `Running` |
-| 1 | Image **non signée** | ❌ refusée | `verify-image-signature` + `require-provenance-attestation` | `no signatures found` / `no matching attestations` |
+| 1 | Image **non signée** (donc aussi **sans provenance**) | ❌ refusée | `verify-image-signature` + `require-provenance-attestation` | `no signatures found` / `no matching attestations` |
 | 2 | Tag mutable `:latest` | ❌ refusée | signature (première à bloquer) **et** `disallow-latest-tag` | `no signatures found` — et même signée, le tag `:latest` resterait interdit par la politique 02 |
 | 3 | Registry non autorisé (`nginx:alpine`) | ❌ refusée | `allowed-registries` | `Image refusée : seules les images de ghcr.io/khalidouatik/ sont autorisées` |
 | 4 | Image **modifiée après signature** (backdoor) | ❌ refusée | `verify-image-signature` | `no signatures found` — le contenu a changé → le digest a changé → aucune signature ne correspond |
@@ -262,3 +277,36 @@ kubectl apply -f policies/kyverno/
 
 ⚠️ **Versions requises** : Kyverno 1.12.x + cosign **v2.x** pour la signature (cf. incident de
 format documenté en §3) — ou Kyverno récent compatible avec le format bundle de cosign v3.
+
+## 8. Bilan
+
+**Ce que nous avons appris.** La leçon principale vient de l'incident cosign v3 / Kyverno 1.12
+(§3) : dans une chaîne de confiance, une preuve cryptographiquement **valide** ne suffit pas —
+il faut qu'elle soit dans un **format que le vérificateur comprend**. `cosign verify` réussissait
+pendant que le cluster refusait notre propre image. Sécuriser une supply chain, c'est donc aussi
+gérer la compatibilité (et l'épinglage de versions) des outils de la chaîne eux-mêmes. Autre
+enseignement : la différence entre « scanner » et « vérifier à l'admission » devient très concrète
+quand on voit le cluster rejeter une image piégée dont le scan serait passé.
+
+**Ce que nous ferions différemment.** Partir directement en **keyless de bout en bout** (une seule
+voie de signature, celle de la CI, vérifiée par la variante B des politiques) plutôt que de
+maintenir clé locale + keyless en parallèle ; et épingler les versions d'outils dès le premier
+jour du projet plutôt qu'après l'incident.
+
+**Répartition du travail** (traçabilité complète dans l'historique git et la PR #1 du dépôt) :
+mise en œuvre de la chaîne de bout en bout — labs 0→5, politiques Kyverno, démo attaque/défense,
+rapport et threat model — portée par Khalid OUATIK ; variante infrastructure (Terraform AKS +
+runners self-hosted GitHub ARC, dossier `infra/`) apportée par PR ; relecture et tests de
+reproduction par le reste du groupe.
+
+## Annexes
+
+- **Sorties brutes** : `livrables/captures/` — démo complète (`demo-output.txt`), pods Running,
+  politiques en Enforce, `cosign verify` et `cosign verify-attestation`
+  (`cosign-verify-attestation.txt` : le payload in-toto contient la provenance SLSA v0.2).
+- **Journal de transparence Rekor** (entrées publiques créées à la signature) :
+  - Signature de l'image : [logIndex 2114060483](https://search.sigstore.dev/?logIndex=2114060483)
+  - Attestation SBOM : [logIndex 2114061021](https://search.sigstore.dev/?logIndex=2114061021)
+  - Attestation de provenance : [logIndex 2114061190](https://search.sigstore.dev/?logIndex=2114061190)
+- **Commandes complètes de vérification** : §4 de ce rapport.
+- **Pipeline CI** : `.github/workflows/supply-chain.yml` (runs publics dans l'onglet Actions du dépôt).
